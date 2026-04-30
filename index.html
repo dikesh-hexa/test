@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GLB Viewer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f8f9fa;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .logo-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+      color: white;
+    }
+
+    .top-actions { display: flex; gap: 10px; align-items: center; }
+
+    .btn {
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      color: #374151;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.18s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      border-color: transparent;
+      color: white;
+    }
+    .btn.primary:hover { opacity: 0.88; }
+
+    #file-input { display: none; }
+
+    /* ── Viewer wrap ── */
+    #viewer-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    model-viewer {
+      width: 100%;
+      height: 100%;
+      background-color: #ffffff;
+      --poster-color: #ffffff;
+    }
+
+    /* ── Progress bar ── */
+    .progress-bar {
+      display: block;
+      width: 33%;
+      height: 3px;
+      max-height: 3px;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 3px;
+      background: #e5e7eb;
+      overflow: hidden;
+      transition: opacity 0.3s 0.3s;
+    }
+    .progress-bar.hide {
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0s 0.3s, opacity 0.3s;
+    }
+    .update-bar {
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      width: 0%;
+      height: 100%;
+      transition: width 0.3s;
+      border-radius: 3px;
+    }
+
+    /* ── AR button ── */
+    #ar-button {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 18px;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      color: white;
+      border: none;
+      border-radius: 24px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+      transition: opacity 0.2s;
+    }
+    #ar-button:not([ar-status="session-started"]):hover { opacity: 0.88; }
+    #ar-button[slot="ar-button"] { display: none; }
+    model-viewer[ar-status="not-presenting"] #ar-button { display: flex; }
+
+    /* ── AR prompt ── */
+    #ar-prompt {
+      position: absolute;
+      left: 50%;
+      bottom: 60px;
+      transform: translateX(-50%);
+      display: none;
+    }
+    model-viewer[ar-status="session-started"] #ar-prompt { display: block; }
+    #ar-prompt img { height: 56px; }
+
+    /* ── Hint bar ── */
+    #hint-bar {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .hint-pill {
+      padding: 5px 12px;
+      background: rgba(0,0,0,0.08);
+      border-radius: 20px;
+      font-size: 12px;
+      color: #6b7280;
+      white-space: nowrap;
+    }
+
+    /* ── Drop overlay ── */
+    #drop-overlay {
+      display: none;
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.92);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 20;
+    }
+    #drop-overlay.show { display: flex; }
+    body.drag-over #drop-overlay { display: flex; }
+
+    .drop-ring {
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      border: 2px dashed #a855f7;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(168,85,247,0.3); }
+      50%      { box-shadow: 0 0 0 16px rgba(168,85,247,0); }
+    }
+    .drop-text { font-size: 16px; font-weight: 600; color: #111827; }
+    .drop-sub  { font-size: 13px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <div class="logo">
+      <div class="logo-icon">⬡</div>
+      GLB Viewer
+    </div>
+    <div class="top-actions">
+      <button class="btn primary" onclick="document.getElementById('file-input').click()">
+        ⬆ Upload GLB
+      </button>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" accept=".glb,.gltf" />
+
+  <div id="viewer-wrap">
+
+    <model-viewer
+      id="viewer"
+      src="https://dikesh-hexa.github.io/test/public/SkLO_Round_Canopy_8_MCR08.glb"
+      alt="3D Model"
+      camera-controls
+      tone-mapping="neutral"
+      shadow-intensity="1"
+      exposure="1"
+      ar
+      ar-modes="webxr scene-viewer quick-look"
+    >
+      <!-- Progress bar -->
+      <div class="progress-bar hide" slot="progress-bar">
+        <div class="update-bar"></div>
+      </div>
+
+      <!-- AR button -->
+      <button slot="ar-button" id="ar-button">
+        📱 View in your space
+      </button>
+
+      <!-- AR prompt -->
+      <div id="ar-prompt">
+        <img src="https://modelviewer.dev/shared-assets/icons/hand.png" alt="AR hand prompt" />
+      </div>
+    </model-viewer>
+
+    <!-- Hint pills -->
+    <div id="hint-bar">
+      <div class="hint-pill">🖱 Drag · Rotate</div>
+      <div class="hint-pill">⚙ Scroll · Zoom</div>
+      <div class="hint-pill">🖱 Right-drag · Pan</div>
+    </div>
+
+    <!-- Drag & drop overlay -->
+    <div id="drop-overlay">
+      <div class="drop-ring">⬡</div>
+      <div class="drop-text">Drop a .glb file here</div>
+      <div class="drop-sub">or use the Upload button above</div>
+    </div>
+
+  </div>
+
+  <script>
+    const viewer    = document.getElementById('viewer');
+    const fileInput = document.getElementById('file-input');
+    const progressBar = document.querySelector('.progress-bar');
+    const updateBar   = document.querySelector('.update-bar');
+
+    // Progress events
+    viewer.addEventListener('progress', e => {
+      const p = e.detail.totalProgress * 100;
+      updateBar.style.width = p + '%';
+      progressBar.classList.remove('hide');
+      if (p >= 100) setTimeout(() => progressBar.classList.add('hide'), 500);
+    });
+
+    // File upload
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      viewer.src = URL.createObjectURL(file);
+      e.target.value = '';
+    });
+
+    // Drag & drop
+    document.addEventListener('dragover', e => {
+      e.preventDefault();
+      document.body.classList.add('drag-over');
+    });
+    document.addEventListener('dragleave', e => {
+      if (!e.relatedTarget) document.body.classList.remove('drag-over');
+    });
+    document.addEventListener('drop', e => {
+      e.preventDefault();
+      document.body.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && (file.name.endsWith('.glb') || file.name.endsWith('.gltf'))) {
+        viewer.src = URL.createObjectURL(file);
+      }
+    });
+  </script>
+
+</body>
+</html>
